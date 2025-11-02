@@ -7,13 +7,24 @@ import { useToast } from "@/hooks/use-toast"
 import dynamic from "next/dynamic"
 
 
-// Lazy load the serial console component to reduce initial bundle size
+// Lazy load console components to reduce initial bundle size
 const VMSerialConsole = dynamic(() => import("@/components/vm-serial-console").then(mod => mod.VMSerialConsole), {
   loading: () => (
     <div className="flex items-center justify-center h-96">
       <div className="flex items-center gap-2">
         <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" />
         <span>Loading console...</span>
+      </div>
+    </div>
+  )
+})
+
+const VMVNCConsole = dynamic(() => import("@/components/vm-vnc-console").then(mod => mod.VMVNCConsole), {
+  loading: () => (
+    <div className="flex items-center justify-center h-96">
+      <div className="flex items-center gap-2">
+        <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+        <span>Loading VNC...</span>
       </div>
     </div>
   )
@@ -663,11 +674,12 @@ export default function VMDetailView() {
 
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid w-full grid-cols-5 mt-2">
+        <TabsList className="grid w-full grid-cols-6 mt-2">
           <TabsTrigger value="overview">{t('vm.overview')}</TabsTrigger>
           <TabsTrigger value="storage">{t('vm.storage')}</TabsTrigger>
           <TabsTrigger value="networking">{t('vm.networking')}</TabsTrigger>
           <TabsTrigger value="console">{t('vm.console')}</TabsTrigger>
+          <TabsTrigger value="vnc">VNC</TabsTrigger>
           <TabsTrigger value="snapshots">{t('vm.snapshots')}</TabsTrigger>
         </TabsList>
 
@@ -926,6 +938,10 @@ export default function VMDetailView() {
 
         <TabsContent value="console" className="space-y-6 mt-4">
           <VMSerialConsole vmUuid={vmData.uuid} />
+        </TabsContent>
+
+        <TabsContent value="vnc" className="space-y-6 mt-4">
+          <VMVNCConsole vmUuid={vmData.uuid} />
         </TabsContent>
 
         <TabsContent value="snapshots" className="space-y-6 mt-4">
