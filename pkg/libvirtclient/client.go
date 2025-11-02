@@ -80,6 +80,26 @@ func NewClient(uri string, isoPoolName, templatePoolName string) (*Client, error
 		return nil, fmt.Errorf("libvirt connect: %w", err)
 	}
 
+	// Check libvirt version (minimum required: 6.10.0 = 6010000)
+	version, err := conn.GetLibVersion()
+	if err != nil {
+		conn.Close()
+		return nil, fmt.Errorf("failed to get libvirt version: %w", err)
+	}
+
+	const minVersion uint32 = 6010000 // 6.10.0
+	if version < minVersion {
+		conn.Close()
+		major := version / 1000000
+		minor := (version % 1000000) / 1000
+		patch := version % 1000
+		return nil, fmt.Errorf(
+			"libvirt version %d.%d.%d is not supported. Minimum required version is 6.10.0.\n"+
+				"Please upgrade libvirt on your system. See README.md for installation instructions",
+			major, minor, patch,
+		)
+	}
+
 	// Auto-configure the managed image library
 	if err := ensureManagedImagePool(conn); err != nil {
 		conn.Close()
