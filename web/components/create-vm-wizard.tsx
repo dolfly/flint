@@ -37,10 +37,17 @@ import {
 
 interface VMConfig {
   // Source
-  sourceType: "iso" | "template" | "import"
+  sourceType: "iso" | "template" | "import" | "pxe"
   selectedSource: string
   imageName: string
-  imageType: "iso" | "template"
+  imageType: "iso" | "template" | "pxe"
+
+  // PXE Configuration
+  pxeConfig?: {
+    kernelUrl: string
+    initrdUrl: string
+    kernelArgs: string
+  }
 
   // Cloud-Init
   enableCloudInit: boolean
@@ -109,6 +116,11 @@ export function CreateVMWizard() {
     selectedSource: "",
     imageName: "",
     imageType: "iso",
+    pxeConfig: {
+      kernelUrl: "",
+      initrdUrl: "",
+      kernelArgs: "",
+    },
     enableCloudInit: false,
     cloudInitConfig: {
       networkConfig: {
@@ -211,6 +223,14 @@ export function CreateVMWizard() {
   const canProceed = () => {
     switch (currentStep) {
       case 0: // Source
+        if (config.sourceType === "pxe") {
+          // For PXE, require kernel and initrd URLs
+          return (
+            config.pxeConfig?.kernelUrl?.trim() !== "" &&
+            config.pxeConfig?.initrdUrl?.trim() !== ""
+          )
+        }
+        // For ISO/template, require selected source
         return config.selectedSource !== ""
       case 1: // Basic
         return config.name.trim() !== ""
@@ -339,14 +359,14 @@ export function CreateVMWizard() {
                 </div>
 
                 <div className={`flex items-center space-x-3 rounded-lg border-2 p-4 transition-all duration-200 cursor-pointer ${
-                  config.sourceType === "import" 
-                    ? "border-primary bg-primary/10" 
+                  config.sourceType === "import"
+                    ? "border-primary bg-primary/10"
                     : "border-muted hover:border-accent"
                 }`}
                 onClick={() => updateConfig({ sourceType: "import" })}>
-                  <RadioGroupItem 
-                    value="import" 
-                    id="import" 
+                  <RadioGroupItem
+                    value="import"
+                    id="import"
                     className={config.sourceType === "import" ? "border-primary" : ""}
                   />
                   <div className="flex-1">
@@ -356,6 +376,26 @@ export function CreateVMWizard() {
                     <p className="text-sm text-muted-foreground">Import an existing virtual machine</p>
                   </div>
                   <Upload className="h-5 w-5 text-muted-foreground" />
+                </div>
+
+                <div className={`flex items-center space-x-3 rounded-lg border-2 p-4 transition-all duration-200 cursor-pointer ${
+                  config.sourceType === "pxe"
+                    ? "border-primary bg-primary/10"
+                    : "border-muted hover:border-accent"
+                }`}
+                onClick={() => updateConfig({ sourceType: "pxe", imageType: "pxe" })}>
+                  <RadioGroupItem
+                    value="pxe"
+                    id="pxe"
+                    className={config.sourceType === "pxe" ? "border-primary" : ""}
+                  />
+                  <div className="flex-1">
+                    <Label htmlFor="pxe" className="font-medium">
+                      PXE Network Boot
+                    </Label>
+                    <p className="text-sm text-muted-foreground">Install OS via network boot (PXE/HTTP)</p>
+                  </div>
+                  <Router className="h-5 w-5 text-muted-foreground" />
                 </div>
               </div>
             </RadioGroup>
@@ -407,14 +447,14 @@ export function CreateVMWizard() {
                       <div
                         key={image.id}
                         className={`cursor-pointer rounded-lg border-2 p-3 transition-all duration-200 ${
-                          config.selectedSource === image.name 
-                            ? "border-primary bg-primary/10" 
+                          config.selectedSource === image.name
+                            ? "border-primary bg-primary/10"
                             : "border-muted hover:border-accent hover:bg-muted/50"
                         }`}
-                        onClick={() => updateConfig({ 
-                          selectedSource: image.name, 
-                          imageName: image.name, 
-                          imageType: image.type 
+                        onClick={() => updateConfig({
+                          selectedSource: image.name,
+                          imageName: image.name,
+                          imageType: image.type
                         })}
                       >
                         <div className="flex items-center justify-between">
@@ -431,6 +471,93 @@ export function CreateVMWizard() {
                       No templates available. Add a template to get started.
                     </div>
                   )}
+                </div>
+              </div>
+            )}
+
+            {config.sourceType === "pxe" && (
+              <div className="space-y-4">
+                <div className="rounded-lg border border-blue-200 bg-blue-50 p-4 dark:border-blue-800 dark:bg-blue-950">
+                  <h4 className="font-medium text-blue-900 dark:text-blue-100">Network Boot Configuration</h4>
+                  <p className="text-sm text-blue-700 dark:text-blue-300 mt-1">
+                    Configure PXE boot parameters to install an operating system over the network.
+                    You'll need a kernel (vmlinuz), initial ramdisk (initrd), and optional kernel arguments.
+                  </p>
+                </div>
+
+                <div className="space-y-3">
+                  <div>
+                    <Label htmlFor="kernelUrl">
+                      Kernel URL <span className="text-destructive">*</span>
+                    </Label>
+                    <Input
+                      id="kernelUrl"
+                      placeholder="http://example.com/path/to/vmlinuz"
+                      value={config.pxeConfig?.kernelUrl || ""}
+                      onChange={(e) => updateConfig({
+                        pxeConfig: {
+                          ...config.pxeConfig!,
+                          kernelUrl: e.target.value
+                        }
+                      })}
+                      className="font-mono text-sm"
+                    />
+                    <p className="text-xs text-muted-foreground mt-1">
+                      HTTP/HTTPS URL to the kernel image (e.g., vmlinuz)
+                    </p>
+                  </div>
+
+                  <div>
+                    <Label htmlFor="initrdUrl">
+                      Initial Ramdisk URL <span className="text-destructive">*</span>
+                    </Label>
+                    <Input
+                      id="initrdUrl"
+                      placeholder="http://example.com/path/to/initrd.img"
+                      value={config.pxeConfig?.initrdUrl || ""}
+                      onChange={(e) => updateConfig({
+                        pxeConfig: {
+                          ...config.pxeConfig!,
+                          initrdUrl: e.target.value
+                        }
+                      })}
+                      className="font-mono text-sm"
+                    />
+                    <p className="text-xs text-muted-foreground mt-1">
+                      HTTP/HTTPS URL to the initial ramdisk (e.g., initrd.img)
+                    </p>
+                  </div>
+
+                  <div>
+                    <Label htmlFor="kernelArgs">
+                      Kernel Arguments <span className="text-muted-foreground">(optional)</span>
+                    </Label>
+                    <Textarea
+                      id="kernelArgs"
+                      placeholder="inst.ks=http://example.com/kickstart.cfg console=ttyS0"
+                      value={config.pxeConfig?.kernelArgs || ""}
+                      onChange={(e) => updateConfig({
+                        pxeConfig: {
+                          ...config.pxeConfig!,
+                          kernelArgs: e.target.value
+                        }
+                      })}
+                      className="font-mono text-sm"
+                      rows={3}
+                    />
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Additional kernel command-line parameters (e.g., kickstart location, console settings)
+                    </p>
+                  </div>
+                </div>
+
+                <div className="rounded-lg border p-3 bg-muted/30">
+                  <p className="text-sm font-medium mb-2">Example Configuration:</p>
+                  <div className="space-y-1 text-xs font-mono text-muted-foreground">
+                    <p>Kernel: http://mirror.centos.org/centos/8/BaseOS/x86_64/os/isolinux/vmlinuz</p>
+                    <p>Initrd: http://mirror.centos.org/centos/8/BaseOS/x86_64/os/isolinux/initrd.img</p>
+                    <p>Args: inst.ks=http://myserver.com/ks.cfg</p>
+                  </div>
                 </div>
               </div>
             )}
@@ -921,12 +1048,31 @@ export function CreateVMWizard() {
                     <span className="text-muted-foreground">Type</span>
                     <span className="font-medium">{config.sourceType.toUpperCase()}</span>
                   </div>
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Source</span>
-                    <span className="font-medium truncate max-w-32" title={config.selectedSource}>
-                      {config.selectedSource}
-                    </span>
-                  </div>
+                  {config.sourceType === "pxe" ? (
+                    <>
+                      <div className="flex flex-col gap-1">
+                        <span className="text-muted-foreground">Kernel URL</span>
+                        <span className="font-mono text-xs break-all">{config.pxeConfig?.kernelUrl}</span>
+                      </div>
+                      <div className="flex flex-col gap-1">
+                        <span className="text-muted-foreground">Initrd URL</span>
+                        <span className="font-mono text-xs break-all">{config.pxeConfig?.initrdUrl}</span>
+                      </div>
+                      {config.pxeConfig?.kernelArgs && (
+                        <div className="flex flex-col gap-1">
+                          <span className="text-muted-foreground">Kernel Args</span>
+                          <span className="font-mono text-xs break-all">{config.pxeConfig.kernelArgs}</span>
+                        </div>
+                      )}
+                    </>
+                  ) : (
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Source</span>
+                      <span className="font-medium truncate max-w-32" title={config.selectedSource}>
+                        {config.selectedSource}
+                      </span>
+                    </div>
+                  )}
                 </CardContent>
               </Card>
 
@@ -1074,7 +1220,7 @@ export function CreateVMWizard() {
                   VCPUs: config.vcpus,
                   DiskPool: config.storagePool,
                   DiskSizeGB: config.diskSize,
-                  imageName: config.imageName,
+                  imageName: config.imageName || '',
                   imageType: config.imageType,
                   StartOnCreate: config.autostart,
                   NetworkName: config.networks[0]?.source || '',
@@ -1095,6 +1241,12 @@ export function CreateVMWizard() {
                       } : null
                     },
                     rawUserData: config.cloudInitConfig.customYaml || ''
+                  } : null,
+                  pxeConfig: config.sourceType === "pxe" ? {
+                    kernelUrl: config.pxeConfig?.kernelUrl || '',
+                    initrdUrl: config.pxeConfig?.initrdUrl || '',
+                    kernelArgs: config.pxeConfig?.kernelArgs || '',
+                    bootFromPxe: true
                   } : null
                 };
                 handleFormSubmit(formData);
