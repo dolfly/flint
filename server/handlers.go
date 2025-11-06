@@ -841,8 +841,8 @@ func validateVMCreationConfig(cfg *core.VMCreationConfig) error {
 		return fmt.Errorf("vCPUs cannot exceed 128")
 	}
 
-	// Validate image name
-	if cfg.ImageName == "" {
+	// Validate image name (optional for PXE boot)
+	if cfg.ImageName == "" && cfg.ImageType != "pxe" {
 		return fmt.Errorf("image name is required")
 	}
 	if len(cfg.ImageName) > 255 {
@@ -850,8 +850,8 @@ func validateVMCreationConfig(cfg *core.VMCreationConfig) error {
 	}
 
 	// Validate image type
-	if cfg.ImageType != "" && cfg.ImageType != "iso" && cfg.ImageType != "template" {
-		return fmt.Errorf("image type must be 'iso' or 'template'")
+	if cfg.ImageType != "" && cfg.ImageType != "iso" && cfg.ImageType != "template" && cfg.ImageType != "pxe" {
+		return fmt.Errorf("image type must be 'iso', 'template', or 'pxe'")
 	}
 
 	// Validate network name
@@ -867,6 +867,26 @@ func validateVMCreationConfig(cfg *core.VMCreationConfig) error {
 	// Validate disk size
 	if cfg.DiskSizeGB > 10000 { // 10 TB limit
 		return fmt.Errorf("disk size cannot exceed 10 TB")
+	}
+
+	// Validate PXE config if provided
+	if cfg.ImageType == "pxe" {
+		if cfg.PXEConfig == nil {
+			return fmt.Errorf("PXE configuration is required when imageType is 'pxe'")
+		}
+		if cfg.PXEConfig.KernelURL == "" {
+			return fmt.Errorf("kernel URL is required for PXE boot")
+		}
+		if cfg.PXEConfig.InitrdURL == "" {
+			return fmt.Errorf("initrd URL is required for PXE boot")
+		}
+		// Validate URLs are well-formed
+		if !strings.HasPrefix(cfg.PXEConfig.KernelURL, "http://") && !strings.HasPrefix(cfg.PXEConfig.KernelURL, "https://") {
+			return fmt.Errorf("kernel URL must be a valid HTTP/HTTPS URL")
+		}
+		if !strings.HasPrefix(cfg.PXEConfig.InitrdURL, "http://") && !strings.HasPrefix(cfg.PXEConfig.InitrdURL, "https://") {
+			return fmt.Errorf("initrd URL must be a valid HTTP/HTTPS URL")
+		}
 	}
 
 	// Validate cloud-init config if provided
